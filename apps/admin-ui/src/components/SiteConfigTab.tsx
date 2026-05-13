@@ -7,10 +7,12 @@ import { getConfigInheritance, updateSiteConfig } from '../api/sites';
 import { trackConfigChange } from '../services/analytics';
 import type { ConfigInheritanceResponse, ConfigSource, SiteConfig } from '../types/api';
 import IabVendorPicker from './IabVendorPicker';
+import RegionalModesEditor from './RegionalModesEditor';
 import { Alert } from './ui/alert';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { FormField } from './ui/form-field';
+import { InfoTooltip } from './ui/info-tooltip';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
 
@@ -120,6 +122,9 @@ export default function SiteConfigTab({ siteId, config }: Props) {
   const [consentExpiry, setConsentExpiry] = useState(config?.consent_expiry_days ?? 365);
   const [privacyUrl, setPrivacyUrl] = useState(config?.privacy_policy_url ?? '');
   const [termsUrl, setTermsUrl] = useState(config?.terms_url ?? '');
+  const [regionalModes, setRegionalModes] = useState<Record<string, string> | null>(
+    config?.regional_modes ?? null,
+  );
 
   // GPP state
   const [gppEnabled, setGppEnabled] = useState(config?.gpp_enabled ?? true);
@@ -185,6 +190,7 @@ export default function SiteConfigTab({ siteId, config }: Props) {
       consent_expiry_days: consentExpiry,
       privacy_policy_url: privacyUrl || null,
       terms_url: termsUrl || null,
+      regional_modes: regionalModes,
       gpp_enabled: gppEnabled,
       gpp_supported_apis: gppEnabled ? gppSupportedApis : null,
       gpc_enabled: gpcEnabled,
@@ -251,6 +257,24 @@ export default function SiteConfigTab({ siteId, config }: Props) {
               </FormField>
               <SourceBadge source={getSource('blocking_mode')} field="blocking mode" />
               <ResetButton field="blocking_mode" inheritance={inheritance} onReset={() => markReset('blocking_mode')} />
+              <InfoTooltip
+                label="What this mode is for"
+                content={
+                  <>
+                    <p className="mb-2 font-semibold text-foreground">
+                      Used when the visitor's region can't be resolved
+                    </p>
+                    <p>
+                      Applies to traffic with no CDN headers: internal
+                      callers, healthchecks, misconfigured edges. The
+                      Regional modes card below overrides this whenever
+                      the country <em>is</em> known. For safety, pick
+                      the most restrictive mode acceptable for
+                      unknown-location traffic.
+                    </p>
+                  </>
+                }
+              />
             </div>
           </div>
 
@@ -306,6 +330,65 @@ export default function SiteConfigTab({ siteId, config }: Props) {
             </p>
           </div>
         </div>
+      </Card>
+
+      <Card className="p-6">
+        <div className="mb-2 flex items-center">
+          <h3 className="font-heading text-sm font-semibold text-foreground">Regional modes</h3>
+          <SourceBadge source={getSource('regional_modes')} field="regional modes" />
+          <ResetButton
+            field="regional_modes"
+            inheritance={inheritance}
+            onReset={() => {
+              setRegionalModes(null);
+              markReset('regional_modes');
+            }}
+          />
+          <InfoTooltip
+            label="How regional matching and fallback works"
+            content={
+              <>
+                <p className="mb-2 font-semibold text-foreground">
+                  Two fallback paths, deliberately separate
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    <code className="font-mono">DEFAULT</code> kicks in
+                    when the visitor's country <em>is</em> known but
+                    you haven't written a rule for it. The "rest of
+                    world" mode for known visitors.
+                  </li>
+                  <li>
+                    The site-level Blocking mode kicks in when the
+                    country <em>can't</em> be resolved at all
+                    (healthchecks, internal callers, misconfigured
+                    edges).
+                  </li>
+                </ul>
+                <p className="mt-2">
+                  Kept separate so you can be strict with
+                  unknown-location traffic without forcing the same
+                  mode on every known country lacking a specific rule.
+                </p>
+              </>
+            }
+          />
+        </div>
+        <p className="mb-4 text-sm text-text-secondary">
+          Pick a different blocking mode per region. Matching runs from
+          most specific to least:{' '}
+          <code className="rounded bg-surface px-1">US-CA</code>{' '}
+          subdivision, then{' '}
+          <code className="rounded bg-surface px-1">US</code> country,
+          then the <code className="rounded bg-surface px-1">EU</code>{' '}
+          bloc, then your{' '}
+          <code className="rounded bg-surface px-1">DEFAULT</code> row.
+          Needs{' '}
+          <code className="rounded bg-surface px-1">GEOIP_COUNTRY_HEADER</code>{' '}
+          on the API; subdivisions also need{' '}
+          <code className="rounded bg-surface px-1">GEOIP_REGION_HEADER</code>.
+        </p>
+        <RegionalModesEditor value={regionalModes} onChange={setRegionalModes} />
       </Card>
 
       <Card className="p-6">
