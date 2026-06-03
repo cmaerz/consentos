@@ -117,6 +117,14 @@ export interface SiteConfig {
   category_tcf_purposes?: Record<string, number[]>;
   /** Bridge origin for cross-domain consent (e.g. ``https://cmp.consentos.dev``). */
   consent_bridge_url?: string | null;
+  /**
+   * Banner translation strings keyed by locale (e.g.
+   * ``{ de: { title: 'Wir verwenden Cookies', … } }``), embedded in the
+   * config so the banner needs no separate request. Each locale holds a
+   * partial set; missing keys fall back to the built-in English defaults.
+   * Absent on older API responses → English only.
+   */
+  translations?: Record<string, Record<string, string>>;
 }
 
 /** Maps a root initiator script to the cookie category it ultimately sets. */

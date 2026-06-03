@@ -204,8 +204,10 @@ class TestGeoResolvedConfig:
             regional_modes={"EU": "opt_in", "US": "opt_out", "DEFAULT": "informational"},
         )
         # Geo-resolved queries: config, site org_id, org_config,
-        # site group_id, gvl meta, category-purpose mapping.
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        # site group_id, gvl meta, category-purpose mapping, translations.
+        db = _mock_db_sequence(
+            config, ORG_ID, None, None, None, [], [("de", {"title": "Wir verwenden Cookies"})]
+        )
         async with await _client(mock_app, db) as client:
             resp = await client.get(
                 f"/api/v1/config/sites/{config.site_id}/geo-resolved",
@@ -216,13 +218,15 @@ class TestGeoResolvedConfig:
         assert data["blocking_mode"] == "opt_in"
         assert data["detected_country"] == "DE"
         assert data["detected_region"] == "EU"
+        # Translations are embedded so the banner needs no second request
+        assert data["translations"] == {"de": {"title": "Wir verwenden Cookies"}}
 
     @pytest.mark.asyncio
     async def test_get_geo_resolved_config_us(self, mock_app):
         config = _mock_config(
             regional_modes={"EU": "opt_in", "US-CA": "opt_out", "DEFAULT": "informational"},
         )
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], [])
 
         with patch(
             "src.routers.config.detect_region",
@@ -254,7 +258,7 @@ class TestGeoResolvedConfig:
         config = _mock_config(
             regional_modes={"EU": "opt_in", "DEFAULT": "informational"},
         )
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], [])
 
         with patch(
             "src.routers.config.detect_region",

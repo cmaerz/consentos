@@ -12,6 +12,7 @@ from src.models.org_config import OrgConfig
 from src.models.site import Site
 from src.models.site_config import SiteConfig
 from src.models.site_group_config import SiteGroupConfig
+from src.models.translation import Translation
 from src.schemas.auth import CurrentUser
 from src.schemas.site import SiteConfigResponse
 from src.services.config_resolver import (
@@ -168,7 +169,29 @@ async def get_geo_resolved_config(
     public["detected_country"] = geo.country_code
     public["detected_region"] = geo.region
 
+    # Embed translations so the banner gets them in this same round trip
+    # rather than issuing a second request. Keyed by locale; the banner
+    # selects the visitor's locale client-side and falls back to the
+    # built-in English defaults for missing locales or keys.
+    public["translations"] = await _load_site_translations(site_id, db)
+
     return public
+
+
+async def _load_site_translations(
+    site_id: uuid.UUID, db: AsyncSession
+) -> dict[str, dict[str, str]]:
+    """Load every locale's translation strings for a site.
+
+    Returns a ``{locale: strings}`` map embedded into the geo-resolved
+    config. Empty when the site has no translations (banner uses English).
+    """
+    result = await db.execute(
+        select(Translation.locale, Translation.strings).where(
+            Translation.site_id == site_id
+        )
+    )
+    return {locale: strings for locale, strings in result.all()}
 
 
 @router.get("/geo")

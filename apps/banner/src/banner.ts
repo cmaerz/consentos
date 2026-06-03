@@ -21,7 +21,7 @@ import { isImplicitConsentMode } from './blocking-mode';
 // below and ``apps/banner/src/loader.ts``.
 import { buildConsentState, readConsent, writeConsent, writeTcfCookie } from './consent';
 import { buildGcmStateFromCategories, updateGcm } from './gcm';
-import { type TranslationStrings, DEFAULT_TRANSLATIONS, detectLocale, interpolate, loadTranslations, renderLinks } from './i18n';
+import { type TranslationStrings, DEFAULT_TRANSLATIONS, detectLocale, interpolate, renderLinks, selectTranslations } from './i18n';
 import {
   createTCModel,
   installTcfApi,
@@ -213,7 +213,7 @@ function buildTCModel(
 
 /** Initialise the banner. Called when the bundle loads. */
 async function init(): Promise<void> {
-  const { siteId, apiBase, cdnBase } = window.__consentos;
+  const { siteId, apiBase } = window.__consentos;
   if (!siteId) {
     console.warn('[ConsentOS] No site ID configured');
     return;
@@ -280,9 +280,9 @@ async function init(): Promise<void> {
     console.info(`[ConsentOS] GPC signal detected (honoured: ${gpcResult.honoured})`);
   }
 
-  // Load translations
+  // Select translations embedded in the config — no extra request
   const locale = detectLocale();
-  const t = await loadTranslations(cdnBase, locale);
+  const t = selectTranslations(config.translations, locale);
 
   // Capture a closure that re-opens the banner with current consent
   // pre-filled. Called from the floating button and from
