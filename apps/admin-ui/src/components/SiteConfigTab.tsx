@@ -21,6 +21,35 @@ interface Props {
   config: SiteConfig | null;
 }
 
+// Locales the banner ships translations for. Mirrors the set offered in
+// the Translations tab. Used for the optional "force language" override.
+const FORCED_LOCALE_OPTIONS: { code: string; name: string }[] = [
+  { code: 'en', name: 'English' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'it', name: 'Italian' },
+  { code: 'nl', name: 'Dutch' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'pl', name: 'Polish' },
+  { code: 'sv', name: 'Swedish' },
+  { code: 'da', name: 'Danish' },
+  { code: 'fi', name: 'Finnish' },
+  { code: 'no', name: 'Norwegian' },
+  { code: 'cs', name: 'Czech' },
+  { code: 'ro', name: 'Romanian' },
+  { code: 'hu', name: 'Hungarian' },
+  { code: 'bg', name: 'Bulgarian' },
+  { code: 'hr', name: 'Croatian' },
+  { code: 'sk', name: 'Slovak' },
+  { code: 'sl', name: 'Slovenian' },
+  { code: 'el', name: 'Greek' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'zh', name: 'Chinese' },
+  { code: 'ar', name: 'Arabic' },
+];
+
 const GPP_SECTIONS = [
   { value: 'usnat', label: 'US National Privacy (Section 7)' },
   { value: 'usca', label: 'US California — CCPA/CPRA (Section 8)' },
@@ -120,6 +149,7 @@ export default function SiteConfigTab({ siteId, config }: Props) {
   const [gcmEnabled, setGcmEnabled] = useState(config?.gcm_enabled ?? true);
   const [shopifyEnabled, setShopifyEnabled] = useState(config?.shopify_privacy_enabled ?? false);
   const [consentExpiry, setConsentExpiry] = useState(config?.consent_expiry_days ?? 365);
+  const [forcedLocale, setForcedLocale] = useState<string>(config?.forced_locale ?? '');
   const [privacyUrl, setPrivacyUrl] = useState(config?.privacy_policy_url ?? '');
   const [termsUrl, setTermsUrl] = useState(config?.terms_url ?? '');
   const [regionalModes, setRegionalModes] = useState<Record<string, string> | null>(
@@ -188,6 +218,8 @@ export default function SiteConfigTab({ siteId, config }: Props) {
       gcm_enabled: gcmEnabled,
       shopify_privacy_enabled: shopifyEnabled,
       consent_expiry_days: consentExpiry,
+      // Empty = auto-detect; clears the override and falls back to the cascade.
+      forced_locale: forcedLocale || null,
       privacy_policy_url: privacyUrl || null,
       terms_url: termsUrl || null,
       regional_modes: regionalModes,
@@ -291,6 +323,43 @@ export default function SiteConfigTab({ siteId, config }: Props) {
               </FormField>
               <SourceBadge source={getSource('consent_expiry_days')} field="consent expiry" />
               <ResetButton field="consent_expiry_days" inheritance={inheritance} onReset={() => markReset('consent_expiry_days')} />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center">
+              <FormField label="Banner language">
+                <Select
+                  value={forcedLocale}
+                  onChange={(e) => setForcedLocale(e.target.value)}
+                >
+                  <option value="">Auto-detect (browser)</option>
+                  {FORCED_LOCALE_OPTIONS.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.name} ({l.code})
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+              <SourceBadge source={getSource('forced_locale')} field="banner language" />
+              <ResetButton field="forced_locale" inheritance={inheritance} onReset={() => { setForcedLocale(''); markReset('forced_locale'); }} />
+              <InfoTooltip
+                label="What forcing a language does"
+                content={
+                  <>
+                    <p className="mb-2 font-semibold text-foreground">
+                      Pins the banner to one language
+                    </p>
+                    <p>
+                      Auto-detect uses the visitor's browser language. Choose
+                      a language to force it for every visitor and skip
+                      detection entirely. Make sure a translation exists for
+                      that language in the Translations tab, otherwise the
+                      banner falls back to English.
+                    </p>
+                  </>
+                }
+              />
             </div>
           </div>
 

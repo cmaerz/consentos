@@ -52,6 +52,7 @@ const BASE_CONFIG: SiteConfig = {
   gcm_default: null,
   shopify_privacy_enabled: false,
   banner_config: null,
+  forced_locale: null,
   privacy_policy_url: null,
   terms_url: null,
   consent_expiry_days: 365,
@@ -75,6 +76,28 @@ describe('SiteConfigTab', () => {
     expect(screen.getByText('Blocking mode')).toBeInTheDocument();
     expect(screen.getByText('Consent expiry (days)')).toBeInTheDocument();
     expect(screen.getByText('Privacy policy URL')).toBeInTheDocument();
+  });
+
+  it('renders the banner language override defaulting to auto-detect', () => {
+    renderWithProviders(
+      <SiteConfigTab siteId="site-1" config={BASE_CONFIG} />,
+    );
+
+    expect(screen.getByText('Banner language')).toBeInTheDocument();
+    const select = screen.getByText('Banner language').closest('div')!.querySelector('select')!;
+    // No forced_locale on BASE_CONFIG → auto-detect selected
+    expect(select.value).toBe('');
+    expect(screen.getByRole('option', { name: 'Auto-detect (browser)' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'German (de)' })).toBeInTheDocument();
+  });
+
+  it('pre-selects a configured forced locale', () => {
+    renderWithProviders(
+      <SiteConfigTab siteId="site-1" config={{ ...BASE_CONFIG, forced_locale: 'de' }} />,
+    );
+
+    const select = screen.getByText('Banner language').closest('div')!.querySelector('select')!;
+    expect(select.value).toBe('de');
   });
 
   it('renders standards section with TCF and GCM toggles', () => {

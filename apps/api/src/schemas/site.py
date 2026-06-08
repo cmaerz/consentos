@@ -59,6 +59,8 @@ class SiteConfigCreate(BaseModel):
     gcm_default: dict | None = None
     shopify_privacy_enabled: bool = False
     banner_config: dict | None = None
+    # Forced banner locale (e.g. "de"). None = auto-detect from the browser.
+    forced_locale: str | None = Field(default=None, max_length=10)
     privacy_policy_url: str | None = None
     terms_url: str | None = None
     scan_schedule_cron: str | None = None
@@ -88,6 +90,8 @@ class SiteConfigUpdate(BaseModel):
     gcm_default: dict | None = None
     shopify_privacy_enabled: bool | None = None
     banner_config: dict | None = None
+    # Forced banner locale (e.g. "de"). None = auto-detect from the browser.
+    forced_locale: str | None = Field(default=None, max_length=10)
     privacy_policy_url: str | None = None
     terms_url: str | None = None
     scan_schedule_cron: str | None = None
@@ -114,6 +118,7 @@ class SiteConfigResponse(BaseModel):
     gcm_default: dict | None = None
     shopify_privacy_enabled: bool = False
     banner_config: dict | None = None
+    forced_locale: str | None = None
     privacy_policy_url: str | None = None
     terms_url: str | None = None
     scan_schedule_cron: str | None = None

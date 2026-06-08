@@ -32,6 +32,7 @@ def _mock_org_config(**overrides):
     config.gcm_enabled = overrides.get("gcm_enabled")
     config.gcm_default = overrides.get("gcm_default")
     config.banner_config = overrides.get("banner_config")
+    config.forced_locale = overrides.get("forced_locale")
     config.gpp_enabled = overrides.get("gpp_enabled")
     config.gpp_supported_apis = overrides.get("gpp_supported_apis")
     config.gpc_enabled = overrides.get("gpc_enabled")

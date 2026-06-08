@@ -280,8 +280,8 @@ async function init(): Promise<void> {
     console.info(`[ConsentOS] GPC signal detected (honoured: ${gpcResult.honoured})`);
   }
 
-  // Load translations
-  const locale = detectLocale();
+  // Load translations. A site-forced locale skips browser detection.
+  const locale = detectLocale(config.forced_locale);
   const t = await loadTranslations(cdnBase, locale);
 
   // Capture a closure that re-opens the banner with current consent

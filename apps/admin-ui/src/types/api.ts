@@ -57,6 +57,8 @@ export interface SiteGroupConfig {
   gpc_jurisdictions: string[] | null;
   gpc_global_honour: boolean | null;
   banner_config: BannerConfig | null;
+  /** Forced banner locale (e.g. "de"); null = auto-detect from the browser. */
+  forced_locale: string | null;
   privacy_policy_url: string | null;
   terms_url: string | null;
   scan_schedule_cron: string | null;
@@ -101,6 +103,8 @@ export interface OrgConfig {
   gcm_default: Record<string, 'granted' | 'denied'> | null;
   shopify_privacy_enabled: boolean | null;
   banner_config: BannerConfig | null;
+  /** Forced banner locale (e.g. "de"); null = auto-detect from the browser. */
+  forced_locale: string | null;
   privacy_policy_url: string | null;
   terms_url: string | null;
   scan_schedule_cron: string | null;
@@ -125,6 +129,8 @@ export interface SiteConfig {
   gcm_default: Record<string, 'granted' | 'denied'> | null;
   shopify_privacy_enabled: boolean;
   banner_config: BannerConfig | null;
+  /** Forced banner locale (e.g. "de"); null = auto-detect from the browser. */
+  forced_locale: string | null;
   privacy_policy_url: string | null;
   terms_url: string | null;
   consent_expiry_days: number;

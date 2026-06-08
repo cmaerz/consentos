@@ -46,6 +46,24 @@ class TestResolveConfig:
         # Non-overridden values stay as defaults
         assert result["gcm_enabled"] is True
 
+    def test_forced_locale_defaults_to_none(self):
+        result = resolve_config({})
+        assert result["forced_locale"] is None
+
+    def test_forced_locale_site_config_overrides_default(self):
+        result = resolve_config({"forced_locale": "de"})
+        assert result["forced_locale"] == "de"
+
+    def test_forced_locale_inherits_from_org_defaults(self):
+        result = resolve_config({}, org_defaults={"forced_locale": "fr"})
+        assert result["forced_locale"] == "fr"
+
+    def test_forced_locale_site_overrides_org(self):
+        result = resolve_config(
+            {"forced_locale": "es"}, org_defaults={"forced_locale": "fr"}
+        )
+        assert result["forced_locale"] == "es"
+
     def test_org_defaults_override_system_defaults(self):
         org_defaults = {"consent_expiry_days": 90}
         result = resolve_config({}, org_defaults=org_defaults)

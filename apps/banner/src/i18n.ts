@@ -54,10 +54,18 @@ export const DEFAULT_TRANSLATIONS: TranslationStrings = {
 /**
  * Detect the user's preferred locale.
  *
- * Priority: 1) explicit data-locale attribute, 2) navigator.language,
+ * Priority: 0) ``forced`` locale from site config (skips all detection),
+ * 1) explicit data-locale attribute, 2) navigator.language,
  * 3) document lang attribute, 4) 'en'.
+ *
+ * @param forced - A locale configured on the site that overrides detection
+ *   entirely. Falsy values (``null``/``undefined``/``''``) fall through to
+ *   normal detection.
  */
-export function detectLocale(): string {
+export function detectLocale(forced?: string | null): string {
+  // Site-forced locale wins outright — detection doesn't run.
+  if (forced) return normaliseLocale(forced);
+
   // Check for explicit override on the script tag
   const scriptEl = document.querySelector('script[data-site-id]');
   const explicit = scriptEl?.getAttribute('data-locale');

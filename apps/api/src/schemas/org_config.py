@@ -25,6 +25,7 @@ class OrgConfigUpdate(BaseModel):
     gcm_default: dict | None = None
     shopify_privacy_enabled: bool | None = None
     banner_config: dict | None = None
+    forced_locale: str | None = Field(default=None, max_length=10)
     privacy_policy_url: str | None = None
     terms_url: str | None = None
     scan_schedule_cron: str | None = None
@@ -51,6 +52,7 @@ class OrgConfigResponse(BaseModel):
     gcm_default: dict | None
     shopify_privacy_enabled: bool | None
     banner_config: dict | None
+    forced_locale: str | None = None
     privacy_policy_url: str | None
     terms_url: str | None
     scan_schedule_cron: str | None

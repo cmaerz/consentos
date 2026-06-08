@@ -65,6 +65,27 @@ describe('i18n', () => {
   });
 
   describe('detectLocale', () => {
+    it('should use a forced locale and skip all detection', () => {
+      // A forced locale must win even when a data-locale attribute and a
+      // different navigator.language are present.
+      const script = document.createElement('script');
+      script.setAttribute('data-site-id', 'site-1');
+      script.setAttribute('data-locale', 'fr-FR');
+      document.head.appendChild(script);
+      vi.spyOn(navigator, 'language', 'get').mockReturnValue('en-US');
+
+      expect(detectLocale('de')).toBe('de');
+      expect(detectLocale('pt-BR')).toBe('pt');
+
+      script.remove();
+    });
+
+    it('should ignore a falsy forced locale and detect normally', () => {
+      vi.spyOn(navigator, 'language', 'get').mockReturnValue('de-DE');
+      expect(detectLocale('')).toBe('de');
+      expect(detectLocale(null)).toBe('de');
+    });
+
     it('should use data-locale attribute when present', () => {
       const script = document.createElement('script');
       script.setAttribute('data-site-id', 'site-1');

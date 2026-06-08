@@ -49,6 +49,7 @@ class OrgConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     # Banner
     banner_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    forced_locale: Mapped[str | None] = mapped_column(String(10), nullable=True)
     privacy_policy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     terms_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
