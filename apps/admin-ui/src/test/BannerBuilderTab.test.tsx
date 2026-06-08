@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 import BannerBuilderTab from '../components/BannerBuilderTab';
 import type { BannerConfig } from '../types/api';
 
+vi.mock('../api/translations', () => ({
+  listTranslations: vi.fn(async () => [
+    { id: '1', site_id: 'site-1', locale: 'de', strings: { title: 'Wir verwenden Cookies' }, created_at: '', updated_at: '' },
+  ]),
+}));
+
 const mockOnSave = vi.fn(() => Promise.resolve({}));
 
 function createQueryClient() {
@@ -201,6 +207,25 @@ describe('BannerBuilderTab', () => {
         }),
       }));
     });
+  });
+
+  it('shows a language switcher with configured locales when a siteId is given', async () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} siteId="site-1" />,
+    );
+
+    const select = await screen.findByLabelText('Preview language');
+    expect(select).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Default (English)' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'German (de)' })).toBeInTheDocument();
+  });
+
+  it('does not show the language switcher without a siteId', () => {
+    renderWithProviders(
+      <BannerBuilderTab {...DEFAULT_PROPS} />,
+    );
+
+    expect(screen.queryByLabelText('Preview language')).not.toBeInTheDocument();
   });
 
   it('changes display mode when mode button is clicked', () => {
