@@ -48,6 +48,9 @@ class SiteConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_mode: Mapped[str] = mapped_column(
         String(30), server_default="bottom_banner", nullable=False
     )
+    # Forced banner locale. When set, the banner uses this locale and skips
+    # browser-language detection. NULL = auto-detect (navigator.language).
+    forced_locale: Mapped[str | None] = mapped_column(String(10), nullable=True)
     privacy_policy_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     terms_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 

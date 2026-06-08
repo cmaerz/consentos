@@ -37,6 +37,7 @@ const BASE_CONFIG: SiteConfig = {
   gcm_default: null,
   shopify_privacy_enabled: false,
   banner_config: null,
+  forced_locale: null,
   privacy_policy_url: null,
   terms_url: null,
   consent_expiry_days: 365,
