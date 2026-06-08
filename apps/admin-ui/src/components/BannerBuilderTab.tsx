@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+import { listTranslations } from '../api/translations';
 import { trackConfigChange } from '../services/analytics';
 import type { BannerConfig, ButtonConfig } from '../types/api';
 import { Button } from './ui/button.tsx';
@@ -40,7 +41,18 @@ interface Props {
   onSave: (body: { banner_config: BannerConfig }) => Promise<unknown>;
   /** Optional domain for the preview iframe */
   siteDomain?: string | null;
+  /** Site ID — when present, enables previewing the banner in configured languages. */
+  siteId?: string | null;
 }
+
+// Display names for the locale dropdown; falls back to the raw code.
+const LOCALE_NAMES: Record<string, string> = {
+  en: 'English', fr: 'French', de: 'German', es: 'Spanish', it: 'Italian',
+  nl: 'Dutch', pt: 'Portuguese', pl: 'Polish', sv: 'Swedish', da: 'Danish',
+  fi: 'Finnish', no: 'Norwegian', cs: 'Czech', ro: 'Romanian', hu: 'Hungarian',
+  bg: 'Bulgarian', hr: 'Croatian', sk: 'Slovak', sl: 'Slovenian', el: 'Greek',
+  ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ar: 'Arabic',
+};
 
 interface Defaults {
   primaryColour: string;
@@ -89,9 +101,22 @@ function getDefaults(config: { banner_config: BannerConfig | null } | null): Def
   };
 }
 
-export default function BannerBuilderTab({ configQueryKey, config, onSave, siteDomain }: Props) {
+export default function BannerBuilderTab({ configQueryKey, config, onSave, siteDomain, siteId }: Props) {
   const queryClient = useQueryClient();
   const defaults = useMemo(() => getDefaults(config), [config]);
+
+  // Configured languages for the live-preview language switcher.
+  const { data: translations } = useQuery({
+    queryKey: ['sites', siteId, 'translations'],
+    queryFn: () => listTranslations(siteId as string),
+    enabled: !!siteId,
+  });
+  // '' = default (banner's own text / English defaults).
+  const [previewLocale, setPreviewLocale] = useState('');
+  const previewText = useMemo(
+    () => translations?.find((t) => t.locale === previewLocale)?.strings,
+    [translations, previewLocale],
+  );
 
   // Theme state
   const [primaryColour, setPrimaryColour] = useState(defaults.primaryColour);
@@ -390,16 +415,33 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
 
       {/* Right panel — preview */}
       <div className="flex-1">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="font-heading text-sm font-semibold text-foreground">Live preview</h3>
-          <TabGroup
-            options={[
-              { value: 'desktop', label: 'Desktop' },
-              { value: 'mobile', label: 'Mobile' },
-            ]}
-            value={viewport}
-            onChange={(v) => setViewport(v as Viewport)}
-          />
+          <div className="flex items-center gap-3">
+            {translations && translations.length > 0 && (
+              <Select
+                value={previewLocale}
+                onChange={(e) => setPreviewLocale(e.target.value)}
+                className="w-auto"
+                aria-label="Preview language"
+              >
+                <option value="">Default (English)</option>
+                {translations.map((t) => (
+                  <option key={t.locale} value={t.locale}>
+                    {LOCALE_NAMES[t.locale] ?? t.locale} ({t.locale})
+                  </option>
+                ))}
+              </Select>
+            )}
+            <TabGroup
+              options={[
+                { value: 'desktop', label: 'Desktop' },
+                { value: 'mobile', label: 'Mobile' },
+              ]}
+              value={viewport}
+              onChange={(v) => setViewport(v as Viewport)}
+            />
+          </div>
         </div>
 
         <BannerPreview
@@ -409,6 +451,8 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
           viewport={viewport}
           privacyPolicyUrl={(config as Record<string, unknown>)?.privacy_policy_url as string ?? null}
           siteUrl={siteDomain}
+          previewLocale={previewLocale || undefined}
+          previewText={previewText}
         />
       </div>
     </div>
