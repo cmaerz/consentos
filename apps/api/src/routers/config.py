@@ -1,12 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db import get_db
 from src.extensions.registry import get_registry
-from src.models.cookie import CookieCategory
+from src.models.cookie import CookieAllowListEntry, CookieCategory
 from src.models.iab_gvl import IabGvlMeta
 from src.models.org_config import OrgConfig
 from src.models.site import Site
@@ -104,11 +104,13 @@ async def get_resolved_config(
 
     gvl_version = await _load_gvl_version(db)
     category_tcf_purposes = await _load_category_tcf_purposes(db)
+    cookie_count = await _load_cookie_count(db, site_id)
     return build_public_config(
         str(site_id),
         resolved,
         gvl_version=gvl_version,
         category_tcf_purposes=category_tcf_purposes,
+        cookie_count=cookie_count,
     )
 
 
@@ -157,11 +159,13 @@ async def get_geo_resolved_config(
     )
     gvl_version = await _load_gvl_version(db)
     category_tcf_purposes = await _load_category_tcf_purposes(db)
+    cookie_count = await _load_cookie_count(db, site_id)
     public = build_public_config(
         str(site_id),
         resolved,
         gvl_version=gvl_version,
         category_tcf_purposes=category_tcf_purposes,
+        cookie_count=cookie_count,
     )
 
     # Include detected geo info so the banner can use it
@@ -357,6 +361,20 @@ async def _load_gvl_version(db: AsyncSession) -> int | None:
     """
     result = await db.execute(select(IabGvlMeta.vendor_list_version).limit(1))
     return result.scalar_one_or_none()
+
+
+async def _load_cookie_count(db: AsyncSession, site_id: uuid.UUID) -> int:
+    """Return the number of allow-listed cookies for the site.
+
+    Surfaced into the public config so the banner can render the optional
+    "N cookies used on this site" line when ``showCookieCount`` is enabled.
+    """
+    result = await db.execute(
+        select(func.count())
+        .select_from(CookieAllowListEntry)
+        .where(CookieAllowListEntry.site_id == site_id)
+    )
+    return int(result.scalar_one() or 0)
 
 
 async def _load_category_tcf_purposes(db: AsyncSession) -> dict[str, list[int]]:

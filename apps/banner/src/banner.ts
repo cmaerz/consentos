@@ -486,6 +486,7 @@ function renderBanner(
             ${renderDescription(t.description, config)}
           </p>
         </div>
+        ${renderCookieCount(config, t)}
         <div class="consentos-banner__categories" id="consentos-categories" role="group" aria-label="${t.managePreferences}">
           ${renderCategories(t, enabledCategories)}
         </div>
@@ -765,6 +766,26 @@ function clampLogoHeight(height: number | undefined): number {
     return 28;
   }
   return Math.min(120, Math.max(12, Math.round(height)));
+}
+
+/**
+ * Render the optional "N cookies used on this site" line. Returns an empty
+ * string unless the banner enables it AND the resolved config carries a
+ * positive cookie count (the number of allow-listed cookies, supplied by
+ * the API). Older API responses omit the count, so nothing renders then.
+ *
+ * Exported for unit testing only.
+ */
+export function renderCookieCount(config: SiteConfig, t: TranslationStrings): string {
+  if (!config.banner_config?.showCookieCount) {
+    return '';
+  }
+  const count = config.cookie_count;
+  if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0) {
+    return '';
+  }
+  const text = interpolate(t.cookieCount, { count: String(count) });
+  return `<span class="cmp-cookie-count">${text}</span>`;
 }
 
 /**
@@ -1079,6 +1100,13 @@ export function getBannerStyles(config: SiteConfig): string {
       max-width: 100%;
       margin-bottom: 10px;
       display: block;
+    }
+
+    .cmp-cookie-count {
+      display: block;
+      font-size: 12px;
+      opacity: 0.6;
+      margin-bottom: 12px;
     }
 
     .consentos-banner__title {

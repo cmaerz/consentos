@@ -37,7 +37,11 @@ vi.mock('../gcm', () => ({
 vi.mock('../i18n', () => ({
   DEFAULT_TRANSLATIONS: {},
   detectLocale: vi.fn(() => 'en'),
-  interpolate: vi.fn((s: string) => s),
+  // Real-ish interpolation so renderCookieCount's {{count}} substitution
+  // can be asserted.
+  interpolate: vi.fn((s: string, vars?: Record<string, string>) =>
+    s.replace(/\{\{(\w+)\}\}/g, (_m, k) => vars?.[k] ?? ''),
+  ),
   loadTranslations: vi.fn(async () => ({})),
   renderLinks: vi.fn((s: string) => s),
 }));
@@ -53,12 +57,15 @@ vi.mock('../a11y', () => ({
 
 vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('mocked'))));
 
-import { getBannerStyles, renderLogo } from '../banner';
+import { getBannerStyles, renderCookieCount, renderLogo } from '../banner';
+import type { TranslationStrings } from '../i18n';
 import type { BannerConfig, SiteConfig } from '../types';
 
 function configWith(banner: Partial<BannerConfig> | null): SiteConfig {
   return { banner_config: banner as BannerConfig | null } as SiteConfig;
 }
+
+const T = { cookieCount: '{{count}} cookies used on this site' } as TranslationStrings;
 
 describe('renderLogo', () => {
   it('renders nothing when there is no banner config', () => {
@@ -157,5 +164,32 @@ describe('banner width', () => {
     const tooLarge = getBannerStyles(configWith({ displayMode: 'overlay', bannerWidth: 9999 }));
     expect(tooSmall).toContain('max-width: 280px');
     expect(tooLarge).toContain('max-width: 960px');
+  });
+});
+
+describe('renderCookieCount', () => {
+  const withCount = (showCookieCount: boolean, cookie_count?: number): SiteConfig =>
+    ({ banner_config: { showCookieCount } as BannerConfig, cookie_count }) as SiteConfig;
+
+  it('renders nothing when the option is disabled', () => {
+    expect(renderCookieCount(withCount(false, 5), T)).toBe('');
+  });
+
+  it('renders nothing when there is no banner config', () => {
+    expect(renderCookieCount({ banner_config: null, cookie_count: 5 } as SiteConfig, T)).toBe('');
+  });
+
+  it('renders nothing when the count is missing (older API)', () => {
+    expect(renderCookieCount(withCount(true, undefined), T)).toBe('');
+  });
+
+  it('renders nothing when the count is zero', () => {
+    expect(renderCookieCount(withCount(true, 0), T)).toBe('');
+  });
+
+  it('renders the interpolated count when enabled with a positive count', () => {
+    const html = renderCookieCount(withCount(true, 8), T);
+    expect(html).toContain('class="cmp-cookie-count"');
+    expect(html).toContain('8 cookies used on this site');
   });
 });
