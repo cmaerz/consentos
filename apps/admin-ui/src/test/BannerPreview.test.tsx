@@ -65,6 +65,31 @@ describe('BannerPreview', () => {
     expect(srcdoc).toContain('Manage preferences');
   });
 
+  it('renders previewText translations and the locale lang attribute', () => {
+    render(
+      <BannerPreview
+        bannerConfig={DEFAULT_CONFIG}
+        displayMode="bottom_banner"
+        viewport="desktop"
+        privacyPolicyUrl={null}
+        previewLocale="de"
+        previewText={{
+          title: 'Wir verwenden Cookies',
+          acceptAll: 'Alle akzeptieren',
+          rejectAll: 'Alle ablehnen',
+        }}
+      />,
+    );
+
+    const srcdoc = (screen.getByTitle('Banner preview') as HTMLIFrameElement).getAttribute('srcdoc')!;
+    expect(srcdoc).toContain('lang="de"');
+    expect(srcdoc).toContain('Wir verwenden Cookies');
+    expect(srcdoc).toContain('Alle akzeptieren');
+    expect(srcdoc).toContain('Alle ablehnen');
+    // Keys not provided in previewText fall back to defaults
+    expect(srcdoc).toContain('Manage preferences');
+  });
+
   it('applies theme colours to srcdoc', () => {
     render(
       <BannerPreview
