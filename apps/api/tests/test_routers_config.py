@@ -65,6 +65,7 @@ def _mock_db_sequence(*results):
     for r in results:
         result = MagicMock()
         result.scalar_one_or_none.return_value = r
+        result.scalar_one.return_value = r
         result.all.return_value = r if isinstance(r, list) else []
         mock_results.append(result)
     session.execute = AsyncMock(side_effect=mock_results)
@@ -112,7 +113,7 @@ class TestResolvedConfig:
         config = _mock_config()
         # Resolved endpoint queries: config, site org_id, org_config,
         # site group_id, gvl meta, category-purpose mapping.
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
         async with await _client(mock_app, db) as client:
             resp = await client.get(f"/api/v1/config/sites/{config.site_id}/resolved")
         assert resp.status_code == 200
@@ -123,7 +124,7 @@ class TestResolvedConfig:
     @pytest.mark.asyncio
     async def test_get_resolved_config_with_region(self, mock_app):
         config = _mock_config(regional_modes={"EU": "opt_in", "US": "opt_out"})
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
         async with await _client(mock_app, db) as client:
             resp = await client.get(f"/api/v1/config/sites/{config.site_id}/resolved?region=EU")
         assert resp.status_code == 200
@@ -212,7 +213,7 @@ class TestGeoResolvedConfig:
         )
         # Geo-resolved queries: config, site org_id, org_config,
         # site group_id, gvl meta, category-purpose mapping.
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
         async with await _client(mock_app, db) as client:
             resp = await client.get(
                 f"/api/v1/config/sites/{config.site_id}/geo-resolved",
@@ -229,7 +230,7 @@ class TestGeoResolvedConfig:
         config = _mock_config(
             regional_modes={"EU": "opt_in", "US-CA": "opt_out", "DEFAULT": "informational"},
         )
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
 
         with patch(
             "src.routers.config.detect_region",
@@ -261,7 +262,7 @@ class TestGeoResolvedConfig:
         config = _mock_config(
             regional_modes={"EU": "opt_in", "DEFAULT": "informational"},
         )
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [])
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
 
         with patch(
             "src.routers.config.detect_region",

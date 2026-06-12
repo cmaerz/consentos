@@ -80,6 +80,12 @@ export interface SiteConfig {
   gcm_default: Record<string, 'granted' | 'denied'> | null;
   shopify_privacy_enabled: boolean;
   banner_config: BannerConfig | null;
+  /**
+   * Number of allow-listed cookies for the site, supplied by the API.
+   * Rendered as "N cookies used on this site" when ``showCookieCount`` is
+   * enabled. Absent on older API responses (the line is then omitted).
+   */
+  cookie_count?: number;
   privacy_policy_url: string | null;
   terms_url: string | null;
   consent_expiry_days: number;
