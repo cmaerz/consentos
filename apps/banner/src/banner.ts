@@ -220,10 +220,16 @@ async function init(): Promise<void> {
     return;
   }
 
+  // Detect the locale up front so the config request returns only this
+  // visitor's translation rather than every locale the site has.
+  const locale = detectLocale();
+
   // Fetch site config — declared with let as A/B testing may replace it
   let config: SiteConfig;
   try {
-    const resp = await fetch(`${apiBase}/api/v1/config/sites/${siteId}/geo-resolved`);
+    const resp = await fetch(
+      `${apiBase}/api/v1/config/sites/${siteId}/geo-resolved?locale=${encodeURIComponent(locale)}`,
+    );
     if (!resp.ok) throw new Error(`Config fetch failed: ${resp.status}`);
     config = await resp.json();
   } catch (err) {
@@ -278,8 +284,7 @@ async function init(): Promise<void> {
     console.info(`[ConsentOS] GPC signal detected (honoured: ${gpcResult.honoured})`);
   }
 
-  // Select translations embedded in the config — no extra request
-  const locale = detectLocale();
+  // Merge the locale strings returned with the config over the defaults.
   const t = selectTranslations(config.translations, locale);
 
   installCmpApi(config, t, gpcResult, abAssignment);

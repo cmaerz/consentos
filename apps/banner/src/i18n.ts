@@ -1,10 +1,11 @@
 /**
  * Banner i18n — locale detection and string translation.
  *
- * Translations are delivered embedded in the site config (see
- * ``SiteConfig.translations``), so no separate request is made here — the
- * banner just selects the visitor's locale and merges over the built-in
- * English defaults. Supports string interpolation via {{key}} placeholders.
+ * The banner sends its detected locale as ?locale= on the config request,
+ * so the visitor's strings arrive with the config (see
+ * ``SiteConfig.translations``) and no separate request is made here — the
+ * banner just merges them over the built-in English defaults. Supports
+ * string interpolation via {{key}} placeholders.
  */
 
 export interface TranslationStrings {
