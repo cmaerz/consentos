@@ -22,7 +22,7 @@ import { isImplicitConsentMode } from './blocking-mode';
 import { buildConsentState, readConsent, writeConsent, writeTcfCookie } from './consent';
 import { renderCookiesWidget } from './cookies-widget';
 import { buildGcmStateFromCategories, updateGcm } from './gcm';
-import { type TranslationStrings, DEFAULT_TRANSLATIONS, detectLocale, interpolate, loadTranslations, renderLinks } from './i18n';
+import { type TranslationStrings, DEFAULT_TRANSLATIONS, detectLocale, interpolate, renderLinks, selectTranslations } from './i18n';
 import {
   createTCModel,
   installTcfApi,
@@ -214,16 +214,22 @@ function buildTCModel(
 
 /** Initialise the banner. Called when the bundle loads. */
 async function init(): Promise<void> {
-  const { siteId, apiBase, cdnBase } = window.__consentos;
+  const { siteId, apiBase } = window.__consentos;
   if (!siteId) {
     console.warn('[ConsentOS] No site ID configured');
     return;
   }
 
+  // Detect the locale up front so the config request returns only this
+  // visitor's translation rather than every locale the site has.
+  const locale = detectLocale();
+
   // Fetch site config — declared with let as A/B testing may replace it
   let config: SiteConfig;
   try {
-    const resp = await fetch(`${apiBase}/api/v1/config/sites/${siteId}/geo-resolved`);
+    const resp = await fetch(
+      `${apiBase}/api/v1/config/sites/${siteId}/geo-resolved?locale=${encodeURIComponent(locale)}`,
+    );
     if (!resp.ok) throw new Error(`Config fetch failed: ${resp.status}`);
     config = await resp.json();
   } catch (err) {
@@ -278,9 +284,8 @@ async function init(): Promise<void> {
     console.info(`[ConsentOS] GPC signal detected (honoured: ${gpcResult.honoured})`);
   }
 
-  // Load translations
-  const locale = detectLocale();
-  const t = await loadTranslations(cdnBase, locale);
+  // Merge the locale strings returned with the config over the defaults.
+  const t = selectTranslations(config.translations, locale);
 
   installCmpApi(config, t, gpcResult, abAssignment);
 

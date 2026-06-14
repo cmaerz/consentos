@@ -3,10 +3,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   DEFAULT_TRANSLATIONS,
   detectLocale,
-  fetchTranslations,
   interpolate,
-  loadTranslations,
   normaliseLocale,
+  selectTranslations,
 } from '../i18n';
 
 describe('i18n', () => {
@@ -98,71 +97,36 @@ describe('i18n', () => {
     });
   });
 
-  describe('fetchTranslations', () => {
-    it('should fetch and parse translations', async () => {
-      const mockTranslations = { title: 'Nous utilisons des cookies' };
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve(mockTranslations),
-      }));
-
-      const result = await fetchTranslations('https://cdn.example.com', 'fr');
-
-      expect(fetch).toHaveBeenCalledWith('https://cdn.example.com/translations-fr.json');
-      expect(result).toEqual(mockTranslations);
-
-      vi.unstubAllGlobals();
-    });
-
-    it('should return null on 404', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
-
-      const result = await fetchTranslations('https://cdn.example.com', 'zz');
-      expect(result).toBeNull();
-
-      vi.unstubAllGlobals();
-    });
-
-    it('should return null on network error', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')));
-
-      const result = await fetchTranslations('https://cdn.example.com', 'fr');
-      expect(result).toBeNull();
-
-      vi.unstubAllGlobals();
-    });
-  });
-
-  describe('loadTranslations', () => {
-    it('should return defaults for English locale', async () => {
-      const t = await loadTranslations('https://cdn.example.com', 'en');
+  describe('selectTranslations', () => {
+    it('should return defaults when no translations are embedded', () => {
+      const t = selectTranslations(undefined, 'de');
       expect(t.title).toBe(DEFAULT_TRANSLATIONS.title);
       expect(t.acceptAll).toBe(DEFAULT_TRANSLATIONS.acceptAll);
     });
 
-    it('should merge remote translations over defaults', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ title: 'Wir verwenden Cookies', acceptAll: 'Alle akzeptieren' }),
-      }));
+    it('should return defaults when the requested locale is absent', () => {
+      const t = selectTranslations({ fr: { title: 'Nous utilisons des cookies' } }, 'de');
+      expect(t.title).toBe(DEFAULT_TRANSLATIONS.title);
+    });
 
-      const t = await loadTranslations('https://cdn.example.com', 'de');
+    it('should merge the locale strings over defaults', () => {
+      const t = selectTranslations(
+        { de: { title: 'Wir verwenden Cookies', acceptAll: 'Alle akzeptieren' } },
+        'de',
+      );
 
       expect(t.title).toBe('Wir verwenden Cookies');
       expect(t.acceptAll).toBe('Alle akzeptieren');
       // Missing keys should fall back to English
       expect(t.rejectAll).toBe(DEFAULT_TRANSLATIONS.rejectAll);
-
-      vi.unstubAllGlobals();
     });
 
-    it('should fall back to defaults when fetch fails', async () => {
-      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fail')));
-
-      const t = await loadTranslations('https://cdn.example.com', 'fr');
-      expect(t.title).toBe(DEFAULT_TRANSLATIONS.title);
-
-      vi.unstubAllGlobals();
+    it('should select the matching locale from a multi-locale map', () => {
+      const embedded = {
+        de: { title: 'Wir verwenden Cookies' },
+        fr: { title: 'Nous utilisons des cookies' },
+      };
+      expect(selectTranslations(embedded, 'fr').title).toBe('Nous utilisons des cookies');
     });
   });
 

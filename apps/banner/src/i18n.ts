@@ -1,8 +1,11 @@
 /**
  * Banner i18n — locale detection and string translation.
  *
- * Loads translations from CDN or uses built-in defaults.
- * Supports string interpolation via {{key}} placeholders.
+ * The banner sends its detected locale as ?locale= on the config request,
+ * so the visitor's strings arrive with the config (see
+ * ``SiteConfig.translations``) and no separate request is made here — the
+ * banner just merges them over the built-in English defaults. Supports
+ * string interpolation via {{key}} placeholders.
  */
 
 export interface TranslationStrings {
@@ -84,40 +87,25 @@ export function normaliseLocale(locale: string): string {
 }
 
 /**
- * Fetch translations for a locale from the CDN.
- * Returns null if not found or on error.
+ * Select translations for a locale from the map embedded in the site
+ * config and merge them over the built-in English defaults.
+ *
+ * No network request is made — translations arrive inside the config
+ * (see ``SiteConfig.translations``). A missing locale, a missing map
+ * (older API responses), or missing individual keys all fall back to the
+ * English defaults.
  */
-export async function fetchTranslations(
-  cdnBase: string,
+export function selectTranslations(
+  embedded: Record<string, Partial<TranslationStrings>> | undefined,
   locale: string,
-): Promise<Partial<TranslationStrings> | null> {
-  try {
-    const resp = await fetch(`${cdnBase}/translations-${locale}.json`);
-    if (!resp.ok) return null;
-    return (await resp.json()) as Partial<TranslationStrings>;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Load translations: try fetching from CDN, fall back to defaults.
- */
-export async function loadTranslations(
-  cdnBase: string,
-  locale: string,
-): Promise<TranslationStrings> {
-  if (locale === 'en') {
+): TranslationStrings {
+  const strings = embedded?.[locale];
+  if (!strings) {
     return { ...DEFAULT_TRANSLATIONS };
   }
 
-  const remote = await fetchTranslations(cdnBase, locale);
-  if (!remote) {
-    return { ...DEFAULT_TRANSLATIONS };
-  }
-
-  // Merge remote over defaults so missing keys fall back to English
-  return { ...DEFAULT_TRANSLATIONS, ...remote };
+  // Merge over defaults so missing keys fall back to English
+  return { ...DEFAULT_TRANSLATIONS, ...strings };
 }
 
 /**

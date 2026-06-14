@@ -42,7 +42,7 @@ vi.mock('../i18n', () => ({
   interpolate: vi.fn((s: string, vars?: Record<string, string>) =>
     s.replace(/\{\{(\w+)\}\}/g, (_m, k) => vars?.[k] ?? ''),
   ),
-  loadTranslations: vi.fn(async () => ({})),
+  selectTranslations: vi.fn(() => ({})),
   renderLinks: vi.fn((s: string) => s),
 }));
 

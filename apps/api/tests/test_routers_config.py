@@ -212,11 +212,15 @@ class TestGeoResolvedConfig:
             regional_modes={"EU": "opt_in", "US": "opt_out", "DEFAULT": "informational"},
         )
         # Geo-resolved queries: config, site org_id, org_config,
-        # site group_id, gvl meta, category-purpose mapping.
-        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
+        # site group_id, gvl meta, category-purpose mapping, cookie count,
+        # the requested locale's translation.
+        db = _mock_db_sequence(
+            config, ORG_ID, None, None, None, [], 0, [("de", {"title": "Wir verwenden Cookies"})]
+        )
         async with await _client(mock_app, db) as client:
             resp = await client.get(
                 f"/api/v1/config/sites/{config.site_id}/geo-resolved",
+                params={"locale": "de"},
                 headers={"cf-ipcountry": "DE"},
             )
         assert resp.status_code == 200
@@ -224,12 +228,46 @@ class TestGeoResolvedConfig:
         assert data["blocking_mode"] == "opt_in"
         assert data["detected_country"] == "DE"
         assert data["detected_region"] == "EU"
+        # Only the requested locale comes back, so the banner needs no
+        # second request and the response stays small.
+        assert data["translations"] == {"de": {"title": "Wir verwenden Cookies"}}
+
+    @pytest.mark.asyncio
+    async def test_get_geo_resolved_config_locale_base_language_fallback(self, mock_app):
+        config = _mock_config(regional_modes={"DEFAULT": "opt_in"})
+        # Stored locale is ``de``; the visitor asks for ``de-de`` and the
+        # base language matches. Result is keyed by the requested locale.
+        db = _mock_db_sequence(
+            config, ORG_ID, None, None, None, [], 0, [("de", {"title": "Wir verwenden Cookies"})]
+        )
+        async with await _client(mock_app, db) as client:
+            resp = await client.get(
+                f"/api/v1/config/sites/{config.site_id}/geo-resolved",
+                params={"locale": "de-DE"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["translations"] == {"de-de": {"title": "Wir verwenden Cookies"}}
+
+    @pytest.mark.asyncio
+    async def test_get_geo_resolved_config_locale_no_match(self, mock_app):
+        config = _mock_config(regional_modes={"DEFAULT": "opt_in"})
+        # Requested locale has no stored translation — banner falls back
+        # to its built-in English defaults.
+        db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0, [])
+        async with await _client(mock_app, db) as client:
+            resp = await client.get(
+                f"/api/v1/config/sites/{config.site_id}/geo-resolved",
+                params={"locale": "fr"},
+            )
+        assert resp.status_code == 200
+        assert resp.json()["translations"] == {}
 
     @pytest.mark.asyncio
     async def test_get_geo_resolved_config_us(self, mock_app):
         config = _mock_config(
             regional_modes={"EU": "opt_in", "US-CA": "opt_out", "DEFAULT": "informational"},
         )
+        # No locale requested, so the translations query is skipped.
         db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
 
         with patch(
@@ -247,6 +285,7 @@ class TestGeoResolvedConfig:
         data = resp.json()
         assert data["blocking_mode"] == "opt_out"
         assert data["detected_region"] == "US-CA"
+        assert data["translations"] == {}
 
     @pytest.mark.asyncio
     async def test_get_geo_resolved_config_not_found(self, mock_app):
@@ -262,6 +301,7 @@ class TestGeoResolvedConfig:
         config = _mock_config(
             regional_modes={"EU": "opt_in", "DEFAULT": "informational"},
         )
+        # No locale requested, so the translations query is skipped.
         db = _mock_db_sequence(config, ORG_ID, None, None, None, [], 0)
 
         with patch(

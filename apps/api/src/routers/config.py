@@ -12,6 +12,7 @@ from src.models.org_config import OrgConfig
 from src.models.site import Site
 from src.models.site_config import SiteConfig
 from src.models.site_group_config import SiteGroupConfig
+from src.models.translation import Translation
 from src.schemas.auth import CurrentUser
 from src.schemas.site import SiteConfigResponse
 from src.services.config_resolver import (
@@ -162,6 +163,7 @@ async def get_resolved_config(
 async def get_geo_resolved_config(
     site_id: uuid.UUID,
     request: Request,
+    locale: str | None = None,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Public endpoint: resolve config using the visitor's detected region.
@@ -169,6 +171,10 @@ async def get_geo_resolved_config(
     Detects the visitor's region from CDN headers or IP geolocation,
     then applies regional blocking mode overrides automatically.
     Uses the full cascade: System → Org → Group → Site → Regional.
+
+    Pass ``?locale=`` to receive that locale's banner translation in the
+    response (base-language fallback applies); omit it for none. The
+    response therefore varies by site, country and locale.
     """
     result = await db.execute(
         select(SiteConfig)
@@ -216,7 +222,44 @@ async def get_geo_resolved_config(
     public["detected_country"] = geo.country_code
     public["detected_region"] = geo.region
 
+    # Include the visitor's locale strings in this same round trip rather
+    # than issuing a second request. The banner sends its detected locale
+    # as ?locale=, so only the relevant translation is returned (keeping
+    # the response small and the cache key site + country + locale).
+    public["translations"] = await _load_site_translation(site_id, locale, db)
+
     return public
+
+
+async def _load_site_translation(
+    site_id: uuid.UUID, locale: str | None, db: AsyncSession
+) -> dict[str, dict[str, str]]:
+    """Load a single locale's translation strings for a site.
+
+    Returns a single-entry ``{locale: strings}`` map for the requested
+    locale, falling back to the base language (``en-us`` -> ``en``).
+    Empty when no locale is requested or none matches, so the banner
+    uses its built-in English defaults. Keyed by the requested locale so
+    the banner's client-side lookup hits regardless of how it matched.
+    """
+    if not locale:
+        return {}
+    requested = locale.lower()
+    candidates = [requested]
+    base = requested.split("-")[0]
+    if base != requested:
+        candidates.append(base)
+    result = await db.execute(
+        select(Translation.locale, Translation.strings).where(
+            Translation.site_id == site_id,
+            func.lower(Translation.locale).in_(candidates),
+        )
+    )
+    rows = {loc.lower(): strings for loc, strings in result.all()}
+    for candidate in candidates:
+        if candidate in rows:
+            return {requested: rows[candidate]}
+    return {}
 
 
 @router.get("/sites/{site_id}/cookies")
