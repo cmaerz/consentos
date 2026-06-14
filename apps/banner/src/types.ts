@@ -80,6 +80,12 @@ export interface SiteConfig {
   gcm_default: Record<string, 'granted' | 'denied'> | null;
   shopify_privacy_enabled: boolean;
   banner_config: BannerConfig | null;
+  /**
+   * Number of allow-listed cookies for the site, supplied by the API.
+   * Rendered as "N cookies used on this site" when ``showCookieCount`` is
+   * enabled. Absent on older API responses (the line is then omitted).
+   */
+  cookie_count?: number;
   privacy_policy_url: string | null;
   terms_url: string | null;
   consent_expiry_days: number;
@@ -117,6 +123,14 @@ export interface SiteConfig {
   category_tcf_purposes?: Record<string, number[]>;
   /** Bridge origin for cross-domain consent (e.g. ``https://cmp.consentos.dev``). */
   consent_bridge_url?: string | null;
+  /**
+   * Banner translation strings keyed by locale (e.g.
+   * ``{ de: { title: 'Wir verwenden Cookies', … } }``), embedded in the
+   * config so the banner needs no separate request. Each locale holds a
+   * partial set; missing keys fall back to the built-in English defaults.
+   * Absent on older API responses → English only.
+   */
+  translations?: Record<string, Record<string, string>>;
 }
 
 /** Maps a root initiator script to the cookie category it ultimately sets. */
@@ -174,6 +188,8 @@ export interface BannerConfig {
   showManagePreferences?: boolean;
   showCloseButton?: boolean;
   showCookieCount?: boolean;
+  showPreferencesButton?: boolean;
+  preferencesButtonPosition?: 'left' | 'right';
   acceptButton?: ButtonConfig;
   rejectButton?: ButtonConfig;
   manageButton?: ButtonConfig;

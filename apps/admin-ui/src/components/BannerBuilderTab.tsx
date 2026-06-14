@@ -1,7 +1,8 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
 
+import { listTranslations } from '../api/translations';
 import { trackConfigChange } from '../services/analytics';
 import type { BannerConfig, ButtonConfig } from '../types/api';
 import { Button } from './ui/button.tsx';
@@ -40,7 +41,18 @@ interface Props {
   onSave: (body: { banner_config: BannerConfig }) => Promise<unknown>;
   /** Optional domain for the preview iframe */
   siteDomain?: string | null;
+  /** Site ID — when present, enables previewing the banner in configured languages. */
+  siteId?: string | null;
 }
+
+// Display names for the locale dropdown; falls back to the raw code.
+const LOCALE_NAMES: Record<string, string> = {
+  en: 'English', fr: 'French', de: 'German', es: 'Spanish', it: 'Italian',
+  nl: 'Dutch', pt: 'Portuguese', pl: 'Polish', sv: 'Swedish', da: 'Danish',
+  fi: 'Finnish', no: 'Norwegian', cs: 'Czech', ro: 'Romanian', hu: 'Hungarian',
+  bg: 'Bulgarian', hr: 'Croatian', sk: 'Slovak', sl: 'Slovenian', el: 'Greek',
+  ja: 'Japanese', ko: 'Korean', zh: 'Chinese', ar: 'Arabic',
+};
 
 interface Defaults {
   primaryColour: string;
@@ -53,6 +65,8 @@ interface Defaults {
   showRejectAll: boolean;
   showManagePreferences: boolean;
   showCloseButton: boolean;
+  showPreferencesButton: boolean;
+  preferencesButtonPosition: CornerPosition;
   showLogo: boolean;
   logoUrl: string;
   logoHeight: number;
@@ -77,6 +91,8 @@ function getDefaults(config: { banner_config: BannerConfig | null } | null): Def
     showRejectAll: bc?.showRejectAll ?? true,
     showManagePreferences: bc?.showManagePreferences ?? true,
     showCloseButton: bc?.showCloseButton ?? false,
+    showPreferencesButton: bc?.showPreferencesButton ?? true,
+    preferencesButtonPosition: bc?.preferencesButtonPosition ?? 'right',
     showLogo: bc?.showLogo ?? false,
     logoUrl: bc?.logoUrl ?? '',
     logoHeight: bc?.logoHeight ?? 28,
@@ -89,9 +105,22 @@ function getDefaults(config: { banner_config: BannerConfig | null } | null): Def
   };
 }
 
-export default function BannerBuilderTab({ configQueryKey, config, onSave, siteDomain }: Props) {
+export default function BannerBuilderTab({ configQueryKey, config, onSave, siteDomain, siteId }: Props) {
   const queryClient = useQueryClient();
   const defaults = useMemo(() => getDefaults(config), [config]);
+
+  // Configured languages for the live-preview language switcher.
+  const { data: translations } = useQuery({
+    queryKey: ['sites', siteId, 'translations'],
+    queryFn: () => listTranslations(siteId as string),
+    enabled: !!siteId,
+  });
+  // '' = default (banner's own text / English defaults).
+  const [previewLocale, setPreviewLocale] = useState('');
+  const previewText = useMemo(
+    () => translations?.find((t) => t.locale === previewLocale)?.strings,
+    [translations, previewLocale],
+  );
 
   // Theme state
   const [primaryColour, setPrimaryColour] = useState(defaults.primaryColour);
@@ -106,6 +135,10 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
   const [showRejectAll, setShowRejectAll] = useState(defaults.showRejectAll);
   const [showManagePreferences, setShowManagePreferences] = useState(defaults.showManagePreferences);
   const [showCloseButton, setShowCloseButton] = useState(defaults.showCloseButton);
+  const [showPreferencesButton, setShowPreferencesButton] = useState(defaults.showPreferencesButton);
+  const [preferencesButtonPosition, setPreferencesButtonPosition] = useState<CornerPosition>(
+    defaults.preferencesButtonPosition,
+  );
   const [showLogo, setShowLogo] = useState(defaults.showLogo);
   const [logoUrl, setLogoUrl] = useState(defaults.logoUrl);
   const [logoHeight, setLogoHeight] = useState(defaults.logoHeight);
@@ -152,6 +185,8 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
       showRejectAll,
       showManagePreferences,
       showCloseButton,
+      showPreferencesButton,
+      preferencesButtonPosition: showPreferencesButton ? preferencesButtonPosition : undefined,
       showLogo,
       logoUrl: logoUrl || undefined,
       logoHeight: showLogo ? logoHeight : undefined,
@@ -164,6 +199,7 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
     [
       primaryColour, backgroundColour, textColour, fontFamily,
       borderRadius, bannerWidth, showOverlayBackdrop, showRejectAll, showManagePreferences, showCloseButton,
+      showPreferencesButton, preferencesButtonPosition,
       showLogo, logoUrl, logoHeight, showCookieCount, cornerPosition,
       acceptButton, rejectButton, manageButton,
     ],
@@ -371,6 +407,39 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
                 defaults={{ backgroundColour: 'transparent', textColour, style: 'outline' }}
               />
               <ToggleField label="Show close button" checked={showCloseButton} onChange={setShowCloseButton} />
+              <ToggleField
+                label="Show floating preferences button"
+                checked={showPreferencesButton}
+                onChange={setShowPreferencesButton}
+              />
+              {showPreferencesButton ? (
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-text-secondary">
+                    Preferences button position
+                  </label>
+                  <div className="flex gap-2">
+                    {(['left', 'right'] as const).map((pos) => (
+                      <button
+                        key={pos}
+                        onClick={() => setPreferencesButtonPosition(pos)}
+                        className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                          preferencesButtonPosition === pos
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-mist text-text-secondary hover:bg-mist/80'
+                        }`}
+                      >
+                        {pos.charAt(0).toUpperCase() + pos.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-[11px] text-text-secondary/70">
+                  Visitors will have no built-in way to reopen their choices. Provide your own
+                  link calling <code>window.ConsentOS.showPreferences()</code> so consent stays
+                  as easy to withdraw as to give.
+                </p>
+              )}
             </div>
         </AccordionSection>
 
@@ -390,16 +459,33 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
 
       {/* Right panel — preview */}
       <div className="flex-1">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="font-heading text-sm font-semibold text-foreground">Live preview</h3>
-          <TabGroup
-            options={[
-              { value: 'desktop', label: 'Desktop' },
-              { value: 'mobile', label: 'Mobile' },
-            ]}
-            value={viewport}
-            onChange={(v) => setViewport(v as Viewport)}
-          />
+          <div className="flex items-center gap-3">
+            {translations && translations.length > 0 && (
+              <Select
+                value={previewLocale}
+                onChange={(e) => setPreviewLocale(e.target.value)}
+                className="w-auto"
+                aria-label="Preview language"
+              >
+                <option value="">Default (English)</option>
+                {translations.map((t) => (
+                  <option key={t.locale} value={t.locale}>
+                    {LOCALE_NAMES[t.locale] ?? t.locale} ({t.locale})
+                  </option>
+                ))}
+              </Select>
+            )}
+            <TabGroup
+              options={[
+                { value: 'desktop', label: 'Desktop' },
+                { value: 'mobile', label: 'Mobile' },
+              ]}
+              value={viewport}
+              onChange={(v) => setViewport(v as Viewport)}
+            />
+          </div>
         </div>
 
         <BannerPreview
@@ -409,6 +495,8 @@ export default function BannerBuilderTab({ configQueryKey, config, onSave, siteD
           viewport={viewport}
           privacyPolicyUrl={(config as Record<string, unknown>)?.privacy_policy_url as string ?? null}
           siteUrl={siteDomain}
+          previewLocale={previewLocale || undefined}
+          previewText={previewText}
         />
       </div>
     </div>

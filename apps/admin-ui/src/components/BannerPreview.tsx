@@ -25,6 +25,8 @@ interface Props {
   privacyPolicyUrl: string | null;
   siteUrl?: string | null;
   previewLocale?: string;
+  /** Per-locale translation strings to render the banner text in. */
+  previewText?: Record<string, string>;
 }
 
 export default function BannerPreview({
@@ -35,17 +37,18 @@ export default function BannerPreview({
   privacyPolicyUrl,
   siteUrl,
   previewLocale,
+  previewText,
 }: Props) {
   const [iframeLoadFailed, setIframeLoadFailed] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
   const siteIframeRef = useRef<HTMLIFrameElement>(null);
   const bannerSrcdoc = useMemo(
-    () => buildBannerOnlyHtml(bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale),
-    [bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale],
+    () => buildBannerOnlyHtml(bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale, previewText),
+    [bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale, previewText],
   );
   const fallbackSrcdoc = useMemo(
-    () => buildPreviewHtml(bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale),
-    [bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale],
+    () => buildPreviewHtml(bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale, previewText),
+    [bannerConfig, displayMode, cornerPosition, privacyPolicyUrl, previewLocale, previewText],
   );
 
   const fullSiteUrl = useMemo(() => {
@@ -173,6 +176,7 @@ function buildBannerOnlyHtml(
   cornerPosition: CornerPosition,
   privacyUrl: string | null,
   previewLocale?: string,
+  previewText?: Record<string, string>,
 ): string {
   const bg = bc.backgroundColour ?? '#ffffff';
   const text = bc.textColour ?? '#1a1a2e';
@@ -182,7 +186,7 @@ function buildBannerOnlyHtml(
 
   const positionStyles = getPositionStyles(displayMode, cornerPosition, radius, bc.bannerWidth);
   const { rejectBtn, manageBtn, acceptBtn, closeBtn, logoHtml, cookieCount, privacyLink, titleText, descriptionText } =
-    buildBannerParts(bc, primary, text, radius, privacyUrl);
+    buildBannerParts(bc, primary, text, radius, privacyUrl, previewText);
 
   const fontLink = bc.customFontUrl
     ? `<link rel="stylesheet" href="${escapeHtml(bc.customFontUrl)}">`
@@ -284,6 +288,7 @@ function buildPreviewHtml(
   cornerPosition: CornerPosition,
   privacyUrl: string | null,
   previewLocale?: string,
+  previewText?: Record<string, string>,
 ): string {
   const bg = bc.backgroundColour ?? '#ffffff';
   const text = bc.textColour ?? '#1a1a2e';
@@ -293,7 +298,7 @@ function buildPreviewHtml(
 
   const positionStyles = getPositionStyles(displayMode, cornerPosition, radius, bc.bannerWidth);
   const { rejectBtn, manageBtn, acceptBtn, closeBtn, logoHtml, cookieCount, privacyLink, titleText, descriptionText, savePreferencesText } =
-    buildBannerParts(bc, primary, text, radius, privacyUrl);
+    buildBannerParts(bc, primary, text, radius, privacyUrl, previewText);
 
   const fontLink = bc.customFontUrl
     ? `<link rel="stylesheet" href="${escapeHtml(bc.customFontUrl)}">`
@@ -504,6 +509,7 @@ function buildBannerParts(
   text: string,
   radius: number,
   privacyUrl: string | null,
+  previewText?: Record<string, string>,
 ) {
   // Each button falls back to its own default style: the primary Accept
   // button is filled, the secondary Reject/Manage buttons are outlined.
@@ -511,13 +517,16 @@ function buildBannerParts(
   const rejectStyle = buildButtonStyle(bc.rejectButton, 'outline', 'transparent', text, 'rgba(0,0,0,0.2)', radius);
   const manageStyle = buildButtonStyle(bc.manageButton, 'outline', 'transparent', text, 'rgba(0,0,0,0.2)', radius);
 
-  // Resolve text content from config or defaults
-  const titleText = bc.text?.title ?? DEFAULT_TITLE;
-  const descriptionText = bc.text?.description ?? DEFAULT_DESCRIPTION;
-  const acceptAllText = bc.text?.acceptAll ?? DEFAULT_ACCEPT_ALL;
-  const rejectAllText = bc.text?.rejectAll ?? DEFAULT_REJECT_ALL;
-  const managePreferencesText = bc.text?.managePreferences ?? DEFAULT_MANAGE_PREFERENCES;
-  const savePreferencesText = bc.text?.savePreferences ?? DEFAULT_SAVE_PREFERENCES;
+  // Resolve text: a previewed language's translation strings win, then the
+  // banner's own text overrides, then the built-in English defaults.
+  const str = (key: keyof NonNullable<BannerConfig['text']>, fallback: string): string =>
+    previewText?.[key] || bc.text?.[key] || fallback;
+  const titleText = str('title', DEFAULT_TITLE);
+  const descriptionText = str('description', DEFAULT_DESCRIPTION);
+  const acceptAllText = str('acceptAll', DEFAULT_ACCEPT_ALL);
+  const rejectAllText = str('rejectAll', DEFAULT_REJECT_ALL);
+  const managePreferencesText = str('managePreferences', DEFAULT_MANAGE_PREFERENCES);
+  const savePreferencesText = str('savePreferences', DEFAULT_SAVE_PREFERENCES);
 
   const acceptBtn = `<button class="cmp-btn" style="${acceptStyle}">${escapeHtml(acceptAllText)}</button>`;
 

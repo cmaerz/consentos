@@ -243,15 +243,15 @@ class TestBuildPublicConfig:
 
 class TestConfigRoutes:
     def test_resolved_config_route_registered(self, app):
-        routes = [r.path for r in app.routes]
+        routes = list(app.openapi()["paths"])
         assert "/api/v1/config/sites/{site_id}/resolved" in routes
 
     def test_publish_route_registered(self, app):
-        routes = [r.path for r in app.routes]
+        routes = list(app.openapi()["paths"])
         assert "/api/v1/config/sites/{site_id}/publish" in routes
 
     def test_inheritance_route_registered(self, app):
-        routes = [r.path for r in app.routes]
+        routes = list(app.openapi()["paths"])
         assert "/api/v1/config/sites/{site_id}/inheritance" in routes
 
     @pytest.mark.asyncio
@@ -322,6 +322,14 @@ class TestEnabledCategories:
         resolved = resolve_config({"enabled_categories": ["necessary", "analytics"]})
         public = build_public_config("site-xyz", resolved)
         assert public["enabled_categories"] == ["necessary", "analytics"]
+
+    def test_public_config_cookie_count_defaults_to_zero(self):
+        public = build_public_config("site-xyz", resolve_config({}))
+        assert public["cookie_count"] == 0
+
+    def test_public_config_includes_cookie_count(self):
+        public = build_public_config("site-xyz", resolve_config({}), cookie_count=7)
+        assert public["cookie_count"] == 7
 
     def test_normalise_handles_none(self):
         assert _normalise_enabled_categories(None) == ALL_CATEGORIES
