@@ -42,9 +42,7 @@ class TestConsentRates:
         site_id = await create_test_site(db_client, auth_headers, domain_prefix="an-rates")
         await _seed_mix(db_client, site_id)
 
-        resp = await db_client.get(
-            f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers
-        )
+        resp = await db_client.get(f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers)
         assert resp.status_code == 200, resp.text
         data = resp.json()
 
@@ -65,9 +63,7 @@ class TestConsentRates:
         # 'custom' but only necessary accepted → effectively a decline
         await _record(db_client, site_id, "custom", ["necessary"], ["analytics", "marketing"])
 
-        resp = await db_client.get(
-            f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers
-        )
+        resp = await db_client.get(f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers)
         # 2 decisions, only the accept_all granted a non-essential → 1/2
         assert resp.json()["consent_rate"] == 0.5
 
@@ -75,9 +71,7 @@ class TestConsentRates:
         site_id = await create_test_site(db_client, auth_headers, domain_prefix="an-cat")
         await _seed_mix(db_client, site_id)
 
-        resp = await db_client.get(
-            f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers
-        )
+        resp = await db_client.get(f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers)
         rates = {c["category"]: c for c in resp.json()["category_rates"]}
 
         # withdrawals are excluded from category rates.
@@ -94,9 +88,7 @@ class TestConsentRates:
 
     async def test_empty_site_returns_zeroes(self, db_client, auth_headers):
         site_id = await create_test_site(db_client, auth_headers, domain_prefix="an-empty")
-        resp = await db_client.get(
-            f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers
-        )
+        resp = await db_client.get(f"/api/v1/sites/{site_id}/consent-rates", headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["total_records"] == 0

@@ -130,7 +130,7 @@ export default function SiteDashboardTab({ siteId }: Props) {
                       <Cell key={entry.name} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                  <Tooltip formatter={(value) => Number(value).toLocaleString()} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
