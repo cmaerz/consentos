@@ -29,6 +29,7 @@ from playwright.async_api import (
     Page,
     Request,
     Response,
+    Route,
     async_playwright,
 )
 
@@ -86,6 +87,59 @@ _DEFAULT_USER_AGENT = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/131.0.0.0 Safari/537.36"
 )
+
+
+def _is_analytics_collect(url: str) -> bool:
+    """True if ``url`` is a Google Analytics measurement beacon.
+
+    Matches GA4 (``/g/collect``) and Universal Analytics (``/collect``)
+    event hits on Google's analytics hosts. These are intercepted during
+    a crawl (answered with 204) so the scan never registers events in the
+    site owner's analytics property. The tag scripts themselves (gtag.js / gtm.js)
+    still load and set their first-party ``_ga*`` cookies via
+    ``document.cookie``, so cookie discovery is unaffected — only the
+    measurement beacon is dropped. We deliberately keep a real browser
+    user agent rather than spoofing a bot, since many sites skip loading
+    analytics/marketing tags for bots, which would blind the scanner.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    is_ga_host = (
+        host == "google-analytics.com"
+        or host.endswith(".google-analytics.com")
+        or host == "analytics.google.com"
+        or host == "stats.g.doubleclick.net"
+    )
+    return is_ga_host and "/collect" in parsed.path
+
+
+# GA4's preferred transport is ``navigator.sendBeacon``, which Playwright's
+# network route does NOT intercept — so we neutralise it in-page before any
+# site script runs. GA beacons are recorded on ``window`` (so the consent
+# validator can still flag them as "fired") and dropped; ``sendBeacon``
+# returns true so the page believes the hit succeeded. fetch / XHR / pixel
+# transports are still handled by the network route (see _is_analytics_collect).
+_ANALYTICS_BEACON_PATCH = """
+(() => {
+  const isGA = (raw) => {
+    try {
+      const u = new URL(raw, location.href);
+      const h = u.hostname;
+      const ga = h === 'google-analytics.com' || h.endsWith('.google-analytics.com')
+        || h === 'analytics.google.com' || h === 'stats.g.doubleclick.net';
+      return ga && u.pathname.includes('/collect');
+    } catch (e) { return false; }
+  };
+  window.__consentosBlockedBeacons = window.__consentosBlockedBeacons || [];
+  if (navigator.sendBeacon) {
+    const orig = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = function (url, data) {
+      if (isGA(url)) { window.__consentosBlockedBeacons.push(String(url)); return true; }
+      return orig(url, data);
+    };
+  }
+})();
+"""
 
 
 @dataclass
@@ -213,6 +267,31 @@ class CookieCrawler:
                 user_agent=self._user_agent,
                 ignore_https_errors=True,
             )
+
+            # Stop Google Analytics measurement beacons from reaching
+            # Google so crawling never records events in the site owner's
+            # analytics property. We reply 204 (rather than aborting) to
+            # mimic GA's own response, so the gtag SDK treats the hit as
+            # delivered and does not retry. The tag scripts still load and
+            # set their cookies, so discovery is unaffected (a real
+            # browser UA is kept on purpose — see _is_analytics_collect).
+            async def _block_analytics(route: Route) -> None:
+                try:
+                    if _is_analytics_collect(route.request.url):
+                        await route.fulfill(status=204, body="")
+                        return
+                    await route.continue_()
+                except Exception:
+                    # Never let interception break the crawl.
+                    try:
+                        await route.continue_()
+                    except Exception:
+                        pass
+
+            await context.route("**/*", _block_analytics)
+            # Neutralise sendBeacon GA hits (route can't intercept those).
+            await context.add_init_script(_ANALYTICS_BEACON_PATCH)
+
             # Start from a clean slate, then plant the ConsentOS consent
             # cookie so the loader treats the visitor as having already
             # accepted every category. Without this the scan only sees

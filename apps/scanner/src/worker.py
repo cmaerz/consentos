@@ -212,7 +212,11 @@ def create_app():  # noqa: ANN201
             validate_post_reject,
             validate_pre_consent,
         )
-        from src.crawler import ProxyConfig
+        from src.crawler import (
+            _ANALYTICS_BEACON_PATCH,
+            ProxyConfig,
+            _is_analytics_collect,
+        )
         from src.dark_pattern_detector import detect_dark_patterns
 
         response = ValidationResponse(url=body.url)
@@ -241,7 +245,38 @@ def create_app():  # noqa: ANN201
                 browser = await pw.chromium.launch(**launch_kwargs)
                 try:
                     context = await browser.new_context(ignore_https_errors=True)
+
+                    # Answer Google Analytics beacons with 204 so the audit
+                    # never records events in the site owner's analytics
+                    # property. The request still fires (and is observed by
+                    # _on_request below), so tracker-before-consent and
+                    # tracker-after-reject violations are still detected — only
+                    # delivery to Google is suppressed.
+                    async def _block_analytics(route) -> None:
+                        try:
+                            if _is_analytics_collect(route.request.url):
+                                await route.fulfill(status=204, body="")
+                                return
+                            await route.continue_()
+                        except Exception:
+                            try:
+                                await route.continue_()
+                            except Exception:
+                                pass
+
+                    await context.route("**/*", _block_analytics)
+                    # GA4 sendBeacon hits bypass network routing; neutralise
+                    # them in-page (recorded on window so they're still
+                    # flagged as fired below).
+                    await context.add_init_script(_ANALYTICS_BEACON_PATCH)
                     page = await context.new_page()
+
+                    async def _collect_blocked_beacons() -> None:
+                        try:
+                            beacons = await page.evaluate("window.__consentosBlockedBeacons || []")
+                            tracker_requests.extend(beacons)
+                        except Exception:
+                            pass  # page may be navigating
 
                     # Track network requests for tracker detection
                     def _on_request(request) -> None:
@@ -257,6 +292,7 @@ def create_app():  # noqa: ANN201
                         timeout=settings.crawler_timeout_ms,
                     )
 
+                    await _collect_blocked_beacons()
                     pre_issues = await validate_pre_consent(
                         page, context, essential_names, tracker_requests
                     )
@@ -329,6 +365,7 @@ def create_app():  # noqa: ANN201
                             continue
 
                     if rejected:
+                        await _collect_blocked_beacons()
                         post_reject_trackers: list[str] = []
                         # Collect any new tracker requests after rejection
                         for req_url in tracker_requests:
