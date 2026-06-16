@@ -17,7 +17,42 @@ from src.crawler import (
     _build_consent_cookie,
     _build_initiator_chain,
     _get_script_initiator,
+    _is_analytics_collect,
 )
+
+
+class TestIsAnalyticsCollect:
+    """The GA-beacon matcher that decides which requests the crawler
+    answers with 204 so they never reach Google Analytics."""
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://www.google-analytics.com/g/collect?v=2&tid=G-XXXX",
+            "https://www.google-analytics.com/collect?v=1&tid=UA-1",
+            "https://region1.google-analytics.com/g/collect?v=2",
+            "https://analytics.google.com/g/collect?v=2",
+            "https://stats.g.doubleclick.net/g/collect?v=2",
+        ],
+    )
+    def test_matches_ga_beacons(self, url):
+        assert _is_analytics_collect(url) is True
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            # Tag/library loads set cookies — must NOT be intercepted.
+            "https://www.googletagmanager.com/gtag/js?id=G-XXXX",
+            "https://www.google-analytics.com/analytics.js",
+            "https://www.googletagmanager.com/gtm.js?id=GTM-XXXX",
+            # Unrelated hosts, even with a /collect path.
+            "https://example.com/g/collect",
+            "https://example.com/api/data",
+        ],
+    )
+    def test_ignores_non_beacons(self, url):
+        assert _is_analytics_collect(url) is False
+
 
 # ── Fixtures ────────────────────────────────────────────────────────────
 
