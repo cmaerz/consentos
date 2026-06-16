@@ -131,23 +131,6 @@ api:
     TELEMETRY_ENABLED: "false"
 ```
 
-## Endpoint and transport
-
-By default the heartbeat is POSTed to:
-
-```
-https://telemetry.consentos.dev/v1/heartbeat
-```
-
-Override with `TELEMETRY_ENDPOINT=<url>` to point at your own
-collector. Network failures are logged and swallowed — telemetry
-must never break the worker.
-
-The send timeout is 10 seconds by default; tune with
-`TELEMETRY_TIMEOUT_SECONDS`.
-
 ## Schedule
 
-The heartbeat runs daily at 02:30 UTC via Celery beat
-(`telemetry-heartbeat` in `src/celery_app.py`). It is independent of
-all other scheduled jobs and a failure in one never affects the other.
+The heartbeat runs once a day.
